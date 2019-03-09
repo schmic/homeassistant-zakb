@@ -2,7 +2,7 @@
 
 **Zweckverband Abfallwirtschaft Kreis Bergstraße** ([ZAKB](https://www.zakb.de)) is reponsible for the garbage collection at Kreis Bergstraße in Germany.
 
-The component lets you configure your address and displays gets the next upcoming date for the clearances of your garbage.
+The component lets you configure your address and gets the next upcoming date for the clearances of your garbage.
 
 The component currently gets dates for:
 - Restmüll
