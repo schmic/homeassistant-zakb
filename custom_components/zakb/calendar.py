@@ -1,5 +1,5 @@
 """
-A component/platform which allows you to get clearances from ZAKB
+A component/platform which allows you to get garbage collection dates from ZAKB
 https://www.zakb.de/
 
 For more details about this component, please refer to the documentation at
@@ -21,7 +21,7 @@ MIN_TIME_BETWEEN_UPDATES = dt_util.dt.timedelta(hours=3)
 
 CONF_DEVICE_ID = 'device_id'
 
-CLEARANCES = ['R', 'B', 'P', 'G']
+COLLECTIONS = ['R', 'B', 'P', 'G']
 
 CONF_HOURS = "hours"
 CONF_TOWN = "town"
@@ -33,20 +33,20 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     _LOGGER.info("ZAKB setup_platform")
 
     calendar_devices = []
-    for clearance in CLEARANCES:
+    for collection in COLLECTIONS:
         device_data = {
-            CONF_DEVICE_ID: "zakb_" + clearance
+            CONF_DEVICE_ID: "zakb_" + collection
         }
 
-        device = ZakbCalendarEventDevice(hass, device_data, clearance, config)
+        device = ZakbCalendarEventDevice(hass, device_data, collection, config)
         calendar_devices.append(device)
 
     add_devices(calendar_devices)
 
 
 class ZakbCalendarEventDevice(CalendarEventDevice):
-    def __init__(self, hass, device_data, clearance, config):
-        self.data = ZakbCalendarData(clearance, config)
+    def __init__(self, hass, device_data, collection, config):
+        self.data = ZakbCalendarData(collection, config)
         super().__init__(hass, device_data)
 
     async def async_update(self):
@@ -54,13 +54,13 @@ class ZakbCalendarEventDevice(CalendarEventDevice):
         self.data.event = await sync_to_async(self.data.get_event)()
         _LOGGER.debug(
             "Data AsyncUpdate() event: ({}) {}".format(
-                self.data.clearance, self.data.event))
+                self.data.collection, self.data.event))
         super().update()
 
 
 class ZakbCalendarData(object):
-    def __init__(self, clearance, config):
-        self.clearance = clearance
+    def __init__(self, collection, config):
+        self.collection = collection
         self.config = config
         self.event = None
 
@@ -120,20 +120,20 @@ class ZakbCalendarData(object):
             form.set("pageName", "Lageadresse")
             browser.submit_selected()
         except mechanicalsoup.LinkNotFoundError:
-            _LOGGER.warn("Could not setup ZAKB:{}, website seems to be unavailable".format(
-                self.clearance))
+            _LOGGER.warn("Could not setup ZAKB:{}, website unavailable".format(
+                self.collection))
             return None
 
         for td in browser.get_current_page().select('td.highlighted'):
             for event in td.select('div.cal-event'):
-                clearance_type = event.text
-                if self.clearance == clearance_type:
-                    clearance_title = event.attrs['title']
-                    clearance_date = self.parse_d_str(td.attrs['title'])
+                collection_type = event.text
+                if self.collection == collection_type:
+                    collection_title = event.attrs['title']
+                    collection_date = self.parse_d_str(td.attrs['title'])
 
-                    start_time = clearance_date - \
+                    start_time = collection_date - \
                         dt_util.dt.timedelta(hours=self.config[CONF_HOURS])
-                    end_time = clearance_date + \
+                    end_time = collection_date + \
                         dt_util.dt.timedelta(hours=self.config[CONF_HOURS])
 
                     return {
@@ -143,7 +143,7 @@ class ZakbCalendarData(object):
                         'end': {
                             'dateTime': end_time.isoformat()
                         },
-                        'description': clearance_title
+                        'description': collection_title
                     }
 
         return None
