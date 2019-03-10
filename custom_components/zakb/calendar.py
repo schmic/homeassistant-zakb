@@ -7,17 +7,17 @@ https://github.com/schmic/homeassistant-zakb
 """
 
 import logging
+from datetime import timedelta
 
 import homeassistant.util.dt as dt_util
-from homeassistant.util import Throttle
 
 from homeassistant.components.calendar import (CalendarEventDevice)
+from homeassistant.helpers.template import DATE_STR_FORMAT
 
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS = ['MechanicalSoup==0.11.0', 'asgiref==2.3.2']
-
-MIN_TIME_BETWEEN_UPDATES = dt_util.dt.timedelta(hours=3)
+SCAN_INTERVAL = timedelta(hours=1)
 
 CONF_DEVICE_ID = 'device_id'
 
@@ -138,10 +138,10 @@ class ZakbCalendarData(object):
 
                     return {
                         'start': {
-                            'dateTime': start_time.isoformat()
+                            'dateTime': start_time.strftime("DATE_STR_FORMAT")
                         },
                         'end': {
-                            'dateTime': end_time.isoformat()
+                            'dateTime': end_time.strftime("DATE_STR_FORMAT")
                         },
                         'description': collection_title
                     }
