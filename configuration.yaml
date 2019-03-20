@@ -1,0 +1,27 @@
+homeassistant:
+  name: Home
+  latitude: 49.0
+  longitude: 8.0
+  elevation: 0
+  unit_system: metric
+  time_zone: Europe/Berlin
+
+http:
+  base_url: http://locahost:8080
+  trusted_networks:
+    - 127.0.0.1
+    - ::1
+    - 172.20.0.0/16
+
+config:
+frontend:
+
+calendar:
+  - platform: zakb
+    town: !secret zakb_town
+    street: !secret zakb_street
+    street_nr: !secret zakb_street_nr
+    hours: 6
+    scan_interval: 30
+
+group:

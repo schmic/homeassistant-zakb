@@ -5,9 +5,6 @@ services:
     ports:
       - 8123:8123
     volumes: 
-      # - ha-volume:/config
       - ./configuration.yaml:/config/configuration.yaml
+      - ./secrets.yaml:/config/secrets.yaml
       - ./custom_components:/config/custom_components
-
-volumes:
-  ha-volume:
