@@ -1,0 +1,13 @@
+version: "3"
+services: 
+  ha:
+    image: homeassistant/home-assistant:0.90.0
+    ports:
+      - 8123:8123
+    volumes: 
+      # - ha-volume:/config
+      - ./configuration.yaml:/config/configuration.yaml
+      - ./custom_components:/config/custom_components
+
+volumes:
+  ha-volume:
