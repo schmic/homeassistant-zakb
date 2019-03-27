@@ -17,14 +17,15 @@ Copy the content of the repository into your `/config` folder, so you end with `
 ## Configuration
 Put your address in `town`, `street` and `street_nr`.
 
-The `hours` option defines from what time +/- around midnight the event is active (`state: on`)
+The `offset` option defines from offset around midnight the event is active (`state: on`)
 
     calendar:
         - platform: zakb
-          hours: 5
           town: !secret zakb_town
           street: !secret zakb_street
           street_nr: !secret zakb_street_nr
+          offset:
+            hours: 6
 
 With that example the `state: on` is from 7pm to 5am.
 
