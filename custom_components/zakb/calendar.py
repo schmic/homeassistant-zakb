@@ -55,7 +55,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             CONF_NAME: "{} - ZAKB".format(COLLECTIONS[collection]),
             CONF_DEVICE_ID: "zakb_{}".format(collection)
         }
-        calendar_data = ZakbCalendarData(collection, config)
+        calendar_data = ZakbCalendarData(
+            collection, config, hass.config.time_zone)
         device = ZakbCalendarEventDevice(hass, device_data, calendar_data)
         calendar_devices.append(device)
 
@@ -77,9 +78,10 @@ class ZakbCalendarEventDevice(CalendarEventDevice):
 
 
 class ZakbCalendarData(object):
-    def __init__(self, collection, config):
+    def __init__(self, collection, config, tz):
         self.collection = collection
         self.config = config
+        self.tz = tz
         self.event = None
 
     def update(self):
@@ -102,14 +104,14 @@ class ZakbCalendarData(object):
                     end_time = collection_date + self.config.get(CONF_OFFSET)
 
                     _LOGGER.info("date: {} {} {}".format(
-                        start_time, collection_date, end_time))
+                        collection_title, start_time, end_time))
 
                     return {
                         'start': {
-                            'dateTime': start_time.strftime(DATE_STR_FORMAT+'%z')
+                            'dateTime': start_time.strftime(DATE_STR_FORMAT)
                         },
                         'end': {
-                            'dateTime': end_time.strftime(DATE_STR_FORMAT+'%z')
+                            'dateTime': end_time.strftime(DATE_STR_FORMAT)
                         },
                         'description': collection_title
                     }
@@ -144,15 +146,15 @@ class ZakbCalendarData(object):
                 self.collection))
             return None
 
-    def parse_d_str(self, date_string):
+    def parse_d_str(self, date_str):
         from datetime import datetime as dt
         from pytz import utc, timezone
 
-        date_string = self.replace_month(date_string).split(", ", 1)[1]
-        tz = timezone('Europe/Berlin')
+        date_str = self.replace_month(date_str).split(", ", 1)[1]
+        date_tz = self.tz.localize(
+            dt.strptime(date_str, "%B %d, %Y"))
 
-        return tz.localize(dt.strptime(date_string, "%B %d, %Y"))
-        # return utc.localize(dt.strptime(date_string, "%B %d, %Y"))
+        return date_tz.astimezone(utc)
 
     def replace_month(self, date_string):
         import re

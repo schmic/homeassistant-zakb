@@ -22,7 +22,7 @@ calendar:
     street: !secret zakb_street
     street_nr: !secret zakb_street_nr
     offset:
-      hours: 12
+      hours: 4
     # scan_interval: 
     #   seconds: 10
 
