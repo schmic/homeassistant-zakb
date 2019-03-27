@@ -21,7 +21,9 @@ calendar:
     town: !secret zakb_town
     street: !secret zakb_street
     street_nr: !secret zakb_street_nr
-    hours: 6
-    scan_interval: 30
+    offset:
+      hours: 12
+    # scan_interval: 
+    #   seconds: 10
 
 group:

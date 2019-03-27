@@ -7,22 +7,24 @@ https://github.com/schmic/homeassistant-zakb
 """
 
 import logging
+import voluptuous as vol
 from datetime import timedelta
 
-import homeassistant.util.dt as dt_util
+import homeassistant.helpers.config_validation as cv
 
-from homeassistant.components.calendar import (CalendarEventDevice)
+from homeassistant.helpers.config_validation import PLATFORM_SCHEMA
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.helpers.template import DATE_STR_FORMAT
-from homeassistant.helpers.entity import generate_entity_id
+from homeassistant.components.calendar import (CalendarEventDevice)
 
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS = ['MechanicalSoup==0.11.0']
-SCAN_INTERVAL = timedelta(hours=3)
 
 CONF_NAME = 'name'
 CONF_DEVICE_ID = 'device_id'
 
+ZAKB_URL = 'https://www.zakb.de/online-service/online-service/abfallkalender/'
 COLLECTIONS = {
     'R': 'Restabfallbehälter',
     'B': 'Bioabfallbehälter',
@@ -30,14 +32,22 @@ COLLECTIONS = {
     'G': 'Gelber Sack'
 }
 
-CONF_HOURS = "hours"
+CONF_OFFSET = "offset"
 CONF_TOWN = "town"
 CONF_STREET = "street"
 CONF_STREET_NR = "street_nr"
 
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
+    vol.Required(CONF_TOWN): cv.string,
+    vol.Required(CONF_STREET): cv.string,
+    vol.Required(CONF_STREET_NR): cv.string,
+    vol.Optional(CONF_OFFSET, default=timedelta(hours=6)): cv.time_period,
+    vol.Optional(CONF_SCAN_INTERVAL, default=timedelta(hours=3)): cv.time_period
+})
+
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    _LOGGER.info("ZAKB setup_platform")
+    scan_interval = config.get(CONF_SCAN_INTERVAL)
 
     calendar_devices = []
     for collection in COLLECTIONS:
@@ -60,7 +70,7 @@ class ZakbCalendarEventDevice(CalendarEventDevice):
 
     async def async_update(self):
         self.data.event = await self.hass.async_add_job(self.data.get_event)
-        _LOGGER.debug(
+        _LOGGER.info(
             "Device AsyncUpdate() event: ({}) {}".format(
                 self.data.collection, self.data.event))
         super().update()
@@ -88,17 +98,18 @@ class ZakbCalendarData(object):
                     collection_title = event.attrs['title']
                     collection_date = self.parse_d_str(td.attrs['title'])
 
-                    start_time = collection_date - \
-                        dt_util.dt.timedelta(hours=self.config[CONF_HOURS])
-                    end_time = collection_date + \
-                        dt_util.dt.timedelta(hours=self.config[CONF_HOURS])
+                    start_time = collection_date - self.config.get(CONF_OFFSET)
+                    end_time = collection_date + self.config.get(CONF_OFFSET)
+
+                    _LOGGER.info("date: {} {} {}".format(
+                        start_time, collection_date, end_time))
 
                     return {
                         'start': {
-                            'dateTime': start_time.strftime(DATE_STR_FORMAT)
+                            'dateTime': start_time.strftime(DATE_STR_FORMAT+'%z')
                         },
                         'end': {
-                            'dateTime': end_time.strftime(DATE_STR_FORMAT)
+                            'dateTime': end_time.strftime(DATE_STR_FORMAT+'%z')
                         },
                         'description': collection_title
                     }
@@ -109,22 +120,19 @@ class ZakbCalendarData(object):
         import mechanicalsoup
         try:
             browser = mechanicalsoup.StatefulBrowser()
-            browser.open(
-                'https://www.zakb.de/online-service/online-service/abfallkalender/'
-            )
-            browser.set_verbose = 1
+            browser.open(ZAKB_URL)
 
             form = browser.select_form('#athos-os-form')
             form.set_select({
-                "aos[Ort]": self.config[CONF_TOWN]
+                "aos[Ort]": self.config.get(CONF_TOWN)
             })
             browser.submit_selected()
 
             form = browser.select_form('#athos-os-form')
             form.set_select({
-                "aos[Strasse]": self.config[CONF_STREET]
+                "aos[Strasse]": self.config.get(CONF_STREET)
             })
-            form.set("aos[Hausnummer]", self.config[CONF_STREET_NR])
+            form.set("aos[Hausnummer]", self.config.get(CONF_STREET_NR))
             form.set("aos[Hausnummerzusatz]", "")
             form.set("aos[Zeitraum]", "Die Leerungen der nächsten 4 Wochen")
             form.set("submitAction", "nextPage")
@@ -138,9 +146,13 @@ class ZakbCalendarData(object):
 
     def parse_d_str(self, date_string):
         from datetime import datetime as dt
+        from pytz import utc, timezone
+
         date_string = self.replace_month(date_string).split(", ", 1)[1]
-        parsed_dt = dt.strptime(date_string, "%B %d, %Y")
-        return parsed_dt
+        tz = timezone('Europe/Berlin')
+
+        return tz.localize(dt.strptime(date_string, "%B %d, %Y"))
+        # return utc.localize(dt.strptime(date_string, "%B %d, %Y"))
 
     def replace_month(self, date_string):
         import re
