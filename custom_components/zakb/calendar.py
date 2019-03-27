@@ -49,6 +49,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 def setup_platform(hass, config, add_devices, discovery_info=None):
     scan_interval = config.get(CONF_SCAN_INTERVAL)
 
+    _LOGGER.info('scan_interval: {}'.format(scan_interval))
+
     calendar_devices = []
     for collection in COLLECTIONS:
         device_data = {
@@ -71,13 +73,16 @@ class ZakbCalendarEventDevice(CalendarEventDevice):
 
     async def async_update(self):
         self.data.event = await self.hass.async_add_job(self.data.get_event)
-        _LOGGER.debug(
-            "Device AsyncUpdate() event: ({}) {}".format(
+        _LOGGER.info(
+            "Device Update() event: ({}) {}".format(
                 self.data.collection, self.data.event))
         super().update()
 
 
 class ZakbCalendarData(object):
+    data = None
+    data_datetime = None
+
     def __init__(self, collection, config, tz):
         self.collection = collection
         self.config = config
@@ -85,6 +90,10 @@ class ZakbCalendarData(object):
         self.event = None
 
     def update(self):
+        self.event = self.get_event()
+        _LOGGER.info(
+            "Data Update() event: ({}) {}".format(
+                self.collection, self.event))
         return True
 
     def get_event(self):
@@ -103,9 +112,6 @@ class ZakbCalendarData(object):
                     start_time = collection_date - self.config.get(CONF_OFFSET)
                     end_time = collection_date + self.config.get(CONF_OFFSET)
 
-                    _LOGGER.info("date: {} {} {}".format(
-                        collection_title, start_time, end_time))
-
                     return {
                         'start': {
                             'dateTime': start_time.strftime(DATE_STR_FORMAT)
@@ -119,32 +125,49 @@ class ZakbCalendarData(object):
         return None
 
     def get_data(self):
-        import mechanicalsoup
-        try:
-            browser = mechanicalsoup.StatefulBrowser()
-            browser.open(ZAKB_URL)
+        from datetime import datetime, timedelta
+        from mechanicalsoup import StatefulBrowser, LinkNotFoundError
 
-            form = browser.select_form('#athos-os-form')
-            form.set_select({
-                "aos[Ort]": self.config.get(CONF_TOWN)
-            })
-            browser.submit_selected()
+        if not self.has_data():
+            try:
+                browser = StatefulBrowser()
+                browser.open(ZAKB_URL)
 
-            form = browser.select_form('#athos-os-form')
-            form.set_select({
-                "aos[Strasse]": self.config.get(CONF_STREET)
-            })
-            form.set("aos[Hausnummer]", self.config.get(CONF_STREET_NR))
-            form.set("aos[Hausnummerzusatz]", "")
-            form.set("aos[Zeitraum]", "Die Leerungen der nächsten 4 Wochen")
-            form.set("submitAction", "nextPage")
-            form.set("pageName", "Lageadresse")
-            browser.submit_selected()
-            return browser.get_current_page().select('td.highlighted')
-        except mechanicalsoup.LinkNotFoundError:
-            _LOGGER.warn("Could not setup ZAKB:{}, website unavailable".format(
-                self.collection))
-            return None
+                form = browser.select_form('#athos-os-form')
+                form.set_select({
+                    "aos[Ort]": self.config.get(CONF_TOWN)
+                })
+                browser.submit_selected()
+
+                form = browser.select_form('#athos-os-form')
+                form.set_select({
+                    "aos[Strasse]": self.config.get(CONF_STREET)
+                })
+                form.set("aos[Hausnummer]", self.config.get(CONF_STREET_NR))
+                form.set("aos[Hausnummerzusatz]", "")
+                form.set("aos[Zeitraum]", "Die Leerungen der nächsten 4 Wochen")
+                form.set("submitAction", "nextPage")
+                form.set("pageName", "Lageadresse")
+                browser.submit_selected()
+                ZakbCalendarData.data = browser.get_current_page().select('td.highlighted')
+            except LinkNotFoundError:
+                _LOGGER.warn("Could not setup ZAKB:{}, website unavailable".format(
+                    self.collection))
+                return None
+
+        return ZakbCalendarData.data
+
+    def has_data(self):
+        from datetime import datetime, timedelta
+
+        if (ZakbCalendarData.data is None or
+                ZakbCalendarData.data_datetime is None or
+                ZakbCalendarData.data_datetime < (datetime.now() - self.config.get(CONF_SCAN_INTERVAL))):
+            ZakbCalendarData.data_datetime = datetime.now()
+            ZakbCalendarData.data = None
+            return False
+
+        return True
 
     def parse_d_str(self, date_str):
         from datetime import datetime as dt
