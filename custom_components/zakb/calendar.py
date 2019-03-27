@@ -71,7 +71,7 @@ class ZakbCalendarEventDevice(CalendarEventDevice):
 
     async def async_update(self):
         self.data.event = await self.hass.async_add_job(self.data.get_event)
-        _LOGGER.info(
+        _LOGGER.debug(
             "Device AsyncUpdate() event: ({}) {}".format(
                 self.data.collection, self.data.event))
         super().update()
@@ -148,7 +148,7 @@ class ZakbCalendarData(object):
 
     def parse_d_str(self, date_str):
         from datetime import datetime as dt
-        from pytz import utc, timezone
+        from pytz import utc
 
         date_str = self.replace_month(date_str).split(", ", 1)[1]
         date_tz = self.tz.localize(
